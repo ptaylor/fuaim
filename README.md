@@ -1,3 +1,5 @@
+<img src="static/icon.svg" width="76" height="76" alt="">
+
 # fuaim
 
 Analyse, classify and transcribe audio recordings, and search the words and
@@ -6,15 +8,21 @@ instead of by filename. *Fuaim* is Irish for *sound*.
 
 ## Status
 
-**Scaffold only — nothing is implemented yet.** The dispatcher, the installer
-and the two halves' stubs are in place; `scan`, `label`, `transcribe` and
-`browse` each parse their arguments and then say "not implemented yet". Read
-[AGENTS.md](AGENTS.md) before changing anything — it carries the agreed
-requirements, the architecture and the index contract.
+**The indexer and the browser work; the models do not.** `fuaim scan DIR`
+indexes the recordings under `DIR` — technical metadata, levels, silence, and a
+waveform (cover) and spectrogram (detail) per recording — and `fuaim browse DIR`
+serves that index as a grid of waveform cards, filterable by when, what and how
+long and searchable over words, labels, filenames and metadata. `fuaim label`
+and `fuaim transcribe` are not written yet, so a recording is described by its
+measurements rather than by what is in it. Read [AGENTS.md](AGENTS.md) for the
+agreed requirements and the index contract.
 
 ```sh
 ./install.sh                 # puts the fuaim command in ~/bin
-fuaim help                   # the commands and their arguments
+
+fuaim scan DIR               # index the recordings under DIR
+fuaim browse DIR             # serve that index and open it
+fuaim browse                 # the committed fixture, for a look around
 ```
 
 ## Two parts
@@ -48,6 +56,12 @@ Read [AGENTS.md](AGENTS.md) first. It carries the agreed requirements, the
 architecture, the open questions, the conventions, the requirement to update
 itself in the same change that introduces a new technology, and the required
 form of AI attribution.
+
+## AI contributions
+
+This README, [AGENTS.md](AGENTS.md) and the icon (`static/icon.svg`, and the
+`static/favicon.ico` generated from it) were written with GitHub Copilot
+(DeepSeek V4 Pro).
 
 ## License
 
