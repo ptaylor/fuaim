@@ -14,11 +14,14 @@ that buys nothing.
 
 ## Status
 
-**The scaffold exists; nothing is implemented yet.** `fuaim.py` dispatches,
-`install.sh` installs, and `scan.py`, `label.py`, `transcribe.py` and `browse.py`
-are stubs that parse their arguments and say so; the halves themselves are not
-written. This file is the specification, written before any working code, and it
-is the contract the first implementation is held to. It mirrors the
+**The scaffold is up; the indexer is written, the browser is not.** `fuaim.py`
+dispatches and `install.sh` installs. `scan.py` is implemented: it walks a
+hierarchy, probes with `ffprobe`, measures levels and silence, generates the
+waveform and spectrogram, writes the index, and with `--proxy` writes playable
+copies. `label.py`, `transcribe.py` and `browse.py` are still stubs that parse
+their arguments and say so. This file is the specification, written before any
+working code, and it is the contract the first implementation is held to. It
+mirrors the
 físeán project in `../finsean`, which is the video analogue of this tool:
 `finsean/scan.py` measures videos and extracts stills, `finsean/label.py` asks a
 vision-language model what is in them, and `finsean/browse.py` presents the
@@ -414,8 +417,11 @@ Rules:
 
 ## Layout
 
-Planned, to be created in this order — the browser and its fixture first, so the
-contract is proved before the indexer exists:
+**Correction (2026-10-02):** the plan was the browser and its fixture first, so
+that the contract is proved before the indexer exists. The order was reversed by
+direction — `scan.py` is written first, and the browser is built against a
+fixture afterwards. The layout, with `scan.py` now implemented and the rest still
+to come:
 
 | Path | What it is |
 | --- | --- |
