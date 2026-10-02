@@ -1,0 +1,24 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local virtual environments — the model commands keep theirs in ~/.venvs, but
+# a stray one inside the checkout is never committed.
+.venv/
+venv/
+
+# Generated index — a scan run against this checkout itself, or a stray copy.
+# The committed fixture index under fixtures/ is deliberately NOT ignored.
+/fuaim-index/
+
+# Local state
+*.env
+.env.local
+*.log
+
+# Editor and OS metadata
+.DS_Store
+*.swp
+.vscode/
+.idea/

@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Paul Taylor
+#
+# vocabulary.yaml — the labels the indexer asks for.
+#
+# This file is project source, and it is data rather than code on purpose: the
+# labels are meant to be edited after looking at real results, and editing them
+# must not mean editing the indexer. Changing this file and re-running
+# `fuaim label` is the whole loop for improving classification.
+#
+# Rules:
+#
+# - **Every label must be one you would actually click.** This library is a few
+#   hundred recordings, not a few million tracks; a label nobody would filter by
+#   is noise in the interface. Expect to delete a third of these.
+# - **`weak: true`** marks a label that must never be a hard filter. A judgement
+#   the model cannot make reliably from a sampled window is a hint, not a fact.
+# - **`min_windows`** is how many sampled windows must agree before a label is
+#   recorded at all, so a single stray window does not label the whole recording.
+# - **`threshold`** is the score below which the label is dropped. A label is
+#   softmaxed against its own group plus the calibration negatives below — the
+#   "is anything here at all?" floor. These numbers are starting guesses:
+#   calibrate them with `fuaim label --calibrate` over one batch.
+# - Levels are **not** in this file. "Silent", "quiet" and "loud" are thresholds
+#   over the numbers in `analysis`, derived by the browser, so they can be
+#   re-tuned without a re-index. See docs/index-format.md, rule 5.
+
+version: 1
+
+zero_shot:
+  # ------------------------------------------------------------ sound type
+  - { text: singing,               group: sound_type, threshold: 0.30, min_windows: 2 }
+  - { text: music,                 group: sound_type, threshold: 0.30, min_windows: 2 }
+  - { text: speech,                group: sound_type, threshold: 0.28, min_windows: 2 }
+  - { text: talk or conversation,  group: sound_type, threshold: 0.30, min_windows: 2 }
+  - { text: noise,                 group: sound_type, threshold: 0.30, min_windows: 2 }
+
+  # ---------------------------------------------------------------- nature
+  - { text: birds,                 group: nature, threshold: 0.32, min_windows: 2 }
+  - { text: bees,                  group: nature, threshold: 0.34, min_windows: 2 }
+  - { text: gulls or seabirds,     group: nature, threshold: 0.34, min_windows: 2 }
+  - { text: rain,                  group: nature, threshold: 0.34, min_windows: 2 }
+  - { text: wind,                  group: nature, threshold: 0.34, min_windows: 2 }
+  - { text: sea or waves,          group: nature, threshold: 0.34, min_windows: 2 }
+
+  # ----------------------------------------------------------------- place
+  - { text: indoors,               group: place, threshold: 0.30, min_windows: 2 }
+  - { text: outdoors,              group: place, threshold: 0.30, min_windows: 2 }
+  - { text: traffic,               group: place, threshold: 0.32, min_windows: 2 }
+  - { text: car,                   group: place, threshold: 0.32, min_windows: 2 }
+  - { text: crowd,                 group: place, threshold: 0.32, min_windows: 2 }
+  - { text: kitchen,               group: place, threshold: 0.34, min_windows: 2 }
+
+  # ------------------------------------------------------------ instrument
+  - { text: piano,                 group: instrument, threshold: 0.32, min_windows: 2 }
+  - { text: trumpet,               group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: oboe,                  group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: flute,                 group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: tin whistle,           group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: guitar,                group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: violin,                group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: drums,                 group: instrument, threshold: 0.34, min_windows: 2 }
+  - { text: orchestra,             group: instrument, threshold: 0.34, min_windows: 2 }
+
+  # ----------------------------------------------------------------- other
+  - { text: laughter,              group: other, threshold: 0.32, min_windows: 2 }
+  - { text: bells,                 group: other, threshold: 0.34, min_windows: 2 }
+  - { text: door,                  group: other, threshold: 0.34, min_windows: 2 }
+  - { text: fridge,                group: other, threshold: 0.34, min_windows: 2 }
+  - { text: clapping,              group: other, threshold: 0.32, min_windows: 2 }
+  - { text: dog barking,           group: other, threshold: 0.34, min_windows: 2 }
