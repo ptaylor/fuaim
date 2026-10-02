@@ -1,0 +1,91 @@
+{
+  "asset_version": 1,
+  "id": "9d6c02c1-two-note",
+  "source": {
+    "path": "two-note.mp3",
+    "size_bytes": 24468,
+    "mtime": "2026-10-02T20:22:35Z",
+    "sha256": null,
+    "mtime_ns": 1790972555923476976
+  },
+  "technical": {
+    "container": "mp3",
+    "codec": "mp3",
+    "sample_rate": 44100,
+    "channels": 1,
+    "bit_rate": 65248,
+    "duration_s": 3.0
+  },
+  "captured": {
+    "at": "2026-10-02T20:22:35Z",
+    "at_source": "file_mtime",
+    "device": null
+  },
+  "analysis": {
+    "peak_dbfs": -10.8,
+    "rms_dbfs": -13.9,
+    "silence_duration_s": 0.0,
+    "silence_ratio": 0.0
+  },
+  "labels": [
+    {
+      "text": "music",
+      "group": "sound_type",
+      "source": "fixture",
+      "model": "fixture",
+      "score": 0.88,
+      "windows": 4,
+      "weak": false
+    },
+    {
+      "text": "piano",
+      "group": "instrument",
+      "source": "fixture",
+      "model": "fixture",
+      "score": 0.7,
+      "windows": 3,
+      "weak": true
+    }
+  ],
+  "events": [
+    {
+      "text": "piano",
+      "group": "instrument",
+      "source": "fixture",
+      "model": "fixture",
+      "at_s": 0.0,
+      "at_e": 1.5,
+      "score": 0.7
+    },
+    {
+      "text": "piano",
+      "group": "instrument",
+      "source": "fixture",
+      "model": "fixture",
+      "at_s": 1.5,
+      "at_e": 3.0,
+      "score": 0.72
+    }
+  ],
+  "wave": {
+    "path": "wave/9d6c02c1-two-note.png"
+  },
+  "spec": {
+    "path": "spec/9d6c02c1-two-note.png"
+  },
+  "scan": {
+    "scan_version": "1",
+    "silence_noise": "-40dB",
+    "silence_min": 0.5,
+    "wave_size": "1200x360",
+    "spec_size": "1200x360",
+    "seconds": 0.34
+  },
+  "label": {
+    "version": 1,
+    "model": "fixture",
+    "vocabulary": null,
+    "windows": 4,
+    "at": "2026-10-02T00:00:00Z"
+  }
+}

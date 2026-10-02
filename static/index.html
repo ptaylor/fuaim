@@ -1,21 +1,57 @@
 <!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Paul Taylor -->
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>fuaim</title>
-  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/app.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fuaim</title>
+<!-- The .ico first as the fallback, then the SVG, which current browsers prefer. -->
+<link rel="icon" href="/static/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <header>
-    <img src="/static/icon.svg" width="40" height="40" alt="">
+<header>
+  <div class="brand">
+    <img class="mark" src="/static/icon.svg" width="22" height="22" alt="">
     <h1>fuaim</h1>
-    <p class="tagline">browse sound recordings</p>
-  </header>
-  <main id="library">
-    <p class="empty">Nothing to show yet — the browser half is built against the fixture index first.</p>
-  </main>
-  <script src="/static/app.js"></script>
+  </div>
+  <span class="count" id="count"></span>
+  <span class="search">
+    <input type="search" id="q" placeholder="Search words, labels, path…   /" aria-label="Search">
+    <button id="q-clear" class="search-clear" title="Clear the search" aria-label="Clear the search" hidden>×</button>
+  </span>
+  <select id="sort" aria-label="Sort">
+    <option value="date-desc">Newest first</option>
+    <option value="date-asc">Oldest first</option>
+    <option value="duration">Longest</option>
+    <option value="name">File name</option>
+  </select>
+  <button id="rail-toggle" title="Show or hide the filters">Filters</button>
+  <span class="spacer"></span>
+</header>
+<div class="banner" id="banner" hidden>
+  <span id="banner-text"></span>
+  <button id="banner-close" title="Dismiss this notice" aria-label="Dismiss this notice">×</button>
+</div>
+<main>
+  <aside id="rail"></aside>
+  <section id="content"><div id="grid"></div></section>
+</main>
+<div id="backdrop" hidden></div>
+<aside id="drawer" hidden></aside>
+<div id="toast" hidden></div>
+<div id="loading" hidden role="progressbar" aria-label="Loading the index" aria-live="polite">
+  <div class="loading-panel">
+    <div class="loading-brand" aria-hidden="true">
+      <img class="loading-mark" src="/static/icon.svg" width="56" height="56" alt="">
+      <p class="loading-name">fuaim</p>
+    </div>
+    <div class="loading-track"><div class="loading-fill"></div></div>
+    <p class="loading-text">reading the index…</p>
+  </div>
+</div>
+<script src="/static/app.js"></script>
 </body>
 </html>

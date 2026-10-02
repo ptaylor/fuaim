@@ -1,0 +1,81 @@
+{
+  "asset_version": 1,
+  "id": "852013e3-pulses",
+  "source": {
+    "path": "pulses.m4a",
+    "size_bytes": 28574,
+    "mtime": "2026-10-02T20:22:36Z",
+    "sha256": null,
+    "mtime_ns": 1790972556059847123
+  },
+  "technical": {
+    "container": "m4a",
+    "codec": "aac",
+    "sample_rate": 44100,
+    "channels": 1,
+    "bit_rate": 76197,
+    "duration_s": 3.0
+  },
+  "captured": {
+    "at": "2026-10-02T20:22:36Z",
+    "at_source": "file_mtime",
+    "device": null
+  },
+  "analysis": {
+    "peak_dbfs": -7.1,
+    "rms_dbfs": -17.7,
+    "silence_duration_s": 0.0,
+    "silence_ratio": 0.0
+  },
+  "labels": [
+    {
+      "text": "music",
+      "group": "sound_type",
+      "source": "fixture",
+      "model": "fixture",
+      "score": 0.85,
+      "windows": 4,
+      "weak": false
+    }
+  ],
+  "events": [],
+  "wave": {
+    "path": "wave/852013e3-pulses.png"
+  },
+  "spec": {
+    "path": "spec/852013e3-pulses.png"
+  },
+  "scan": {
+    "scan_version": "1",
+    "silence_noise": "-40dB",
+    "silence_min": 0.5,
+    "wave_size": "1200x360",
+    "spec_size": "1200x360",
+    "seconds": 0.42
+  },
+  "transcription": {
+    "model": "fixture",
+    "language": "en",
+    "at": "2026-10-02T00:00:00Z",
+    "text": "This is a synthesised recording, not real speech.",
+    "segments": [
+      {
+        "at_s": 0.0,
+        "at_e": 1.4,
+        "text": "This is a synthesised recording,"
+      },
+      {
+        "at_s": 1.4,
+        "at_e": 3.0,
+        "text": "not real speech."
+      }
+    ]
+  },
+  "label": {
+    "version": 1,
+    "model": "fixture",
+    "vocabulary": null,
+    "windows": 4,
+    "at": "2026-10-02T00:00:00Z"
+  }
+}

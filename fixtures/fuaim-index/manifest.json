@@ -1,0 +1,21 @@
+{
+  "index_version": 1,
+  "generated": "2026-10-02T20:22:37Z",
+  "media_root": "../media",
+  "asset_count": 4,
+  "generator": {
+    "name": "scan.py",
+    "version": "1"
+  },
+  "models": [
+    {
+      "name": "ffmpeg",
+      "version": "8.1.2",
+      "licence": "GPL-3.0-or-later"
+    }
+  ],
+  "vocabulary": {
+    "name": "vocabulary.yaml",
+    "sha256": "e099969a894a168a61fa2c1f152f9ddaefb8268324eb4864ef32793f4cdf582b"
+  }
+}
