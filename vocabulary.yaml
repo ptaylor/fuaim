@@ -69,3 +69,11 @@ zero_shot:
   - { text: fridge,                group: other, threshold: 0.34, min_windows: 2 }
   - { text: clapping,              group: other, threshold: 0.32, min_windows: 2 }
   - { text: dog barking,           group: other, threshold: 0.34, min_windows: 2 }
+
+calibration:
+  # The "is anything here at all?" floor. Scored alongside every group and never
+  # written: a label that scores no better than "silence" is measuring nothing.
+  negatives:
+    - silence
+    - an empty recording
+    - nothing audible

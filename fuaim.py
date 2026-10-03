@@ -53,7 +53,10 @@ MODELS_INSTALL = """fuaim label and fuaim transcribe need PyTorch and the model
 libraries, which live in their own environment:
 
     python3.12 -m venv ~/.venvs/fuaim-models
-    ~/.venvs/fuaim-models/bin/pip install "torch==2.2.2" "numpy<2" transformers faster-whisper pyyaml
+    ~/.venvs/fuaim-models/bin/pip install "torch==2.2.2" "numpy<2" "transformers==4.40.2" faster-whisper pyyaml
+
+transformers is pinned to 4.40.2: this Intel Mac's last PyTorch wheel is 2.2.2,
+and a newer transformers demands PyTorch >= 2.5.
 """
 
 # The directory name `fuaim scan` writes by default, and the one `fuaim browse`

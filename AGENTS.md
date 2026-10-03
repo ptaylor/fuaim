@@ -14,17 +14,19 @@ that buys nothing.
 
 ## Status
 
-**The scaffold is up; the indexer and the browser are written.** `fuaim.py`
-dispatches and `install.sh` installs. `scan.py` is implemented: it walks a
-hierarchy, probes with `ffprobe`, measures levels and silence, generates the
-waveform and spectrogram, writes the index, and with `--proxy` writes playable
-copies. `browse.py` is implemented: it serves the index as a grid of waveform
-cards, filterable by when, what and how long, searchable over words, labels,
-filenames and metadata, with a detail view showing the spectrogram, sound-event
-timeline and transcript. `label.py` and `transcribe.py` are still stubs that
-parse their arguments and say so. This file is the specification, written before
-any working code, and it is the contract the first implementation is held to. It
-mirrors the
+**The scaffold is up; the indexer, the labeller and the browser are written.**
+`fuaim.py` dispatches and `install.sh` installs. `scan.py` is implemented: it
+walks a hierarchy, probes with `ffprobe`, measures levels and silence, generates
+the waveform and spectrogram, writes the index, and with `--proxy` writes
+playable copies. `label.py` is implemented: it asks CLAP how well each phrase in
+`vocabulary.yaml` fits sampled windows and writes whole-file `labels` plus a
+sound-event `events` timeline. `browse.py` is implemented: it serves the index
+as a grid of waveform cards, filterable by when, what and how long, searchable
+over words, labels, filenames and metadata, with a detail view showing the
+spectrogram, sound-event timeline and transcript. `transcribe.py` is still a
+stub that parses its arguments and says so. This file is the specification,
+written before any working code, and it is the contract the first implementation
+is held to. It mirrors the
 físeán project in `../finsean`, which is the video analogue of this tool:
 `finsean/scan.py` measures videos and extracts stills, `finsean/label.py` asks a
 vision-language model what is in them, and `finsean/browse.py` presents the
@@ -328,7 +330,9 @@ What is decided and what is still being measured:
   document, which is worth knowing before it is designed in.
 - **Zero-shot labels: adopted.** CLAP through `transformers`,
   `laion/clap-htsat-fused` (Apache-2.0), scoring a hand-editable
-  `vocabulary.yaml` — the same loop físeán runs with CLIP. The vocabulary groups
+  `vocabulary.yaml` — the same loop físeán runs with CLIP. `transformers` is
+  pinned to 4.40.2: this Intel Mac's last PyTorch wheel is 2.2.2, and a newer
+  transformers demands PyTorch ≥ 2.5 (recorded 2026-10-03). The vocabulary groups
   are the audio answer to "who & what": `sound type` (singing, music, talk,
   noise), `nature` (birds, bees, gulls, rain, wind), `place` (indoors, outdoors,
   traffic, crowd, kitchen), `instrument` (piano, trumpet, oboe, flute, tin
@@ -423,8 +427,8 @@ Rules:
 **Correction (2026-10-02):** the plan was the browser and its fixture first, so
 that the contract is proved before the indexer exists. The order was reversed by
 direction — `scan.py` was written first, and the browser was built against the
-fixture afterwards. The layout, with `scan.py`, `browse.py` and the fixture now
-implemented and `label.py` and `transcribe.py` still to come:
+fixture afterwards. The layout, with `scan.py`, `browse.py`, `label.py` and the fixture now
+implemented and `transcribe.py` still to come:
 
 | Path | What it is |
 | --- | --- |
