@@ -8,14 +8,14 @@ instead of by filename. *Fuaim* is Irish for *sound*.
 
 ## Status
 
-**The indexer, the labeller and the browser work; transcription does not.**
+**The whole tool works.**
 `fuaim scan DIR` indexes the recordings under `DIR` — technical metadata,
 levels, silence, and a waveform (cover) and spectrogram (detail) per recording.
 `fuaim label DIR` asks CLAP what is in each recording, writing whole-file labels
 and a sound-event timeline. `fuaim browse DIR` serves the index as a grid of
 waveform cards, filterable by when, what and how long and searchable over words,
-labels, filenames and metadata. `fuaim transcribe` is not written yet, so spoken
-words are not searchable. Read [AGENTS.md](AGENTS.md) for the agreed
+labels, filenames and metadata. `fuaim transcribe DIR` runs Whisper over each recording, so spoken
+words are searchable and each segment can be jumped to. Read [AGENTS.md](AGENTS.md) for the agreed
 requirements and the index contract.
 
 ```sh
@@ -23,6 +23,7 @@ requirements and the index contract.
 
 fuaim scan DIR               # index the recordings under DIR
 fuaim label DIR              # classify them: what is in each one
+fuaim transcribe DIR         # transcribe the speech, for search
 fuaim browse DIR             # serve that index and open it
 fuaim browse                 # the committed fixture, for a look around
 ```

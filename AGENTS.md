@@ -14,7 +14,7 @@ that buys nothing.
 
 ## Status
 
-**The scaffold is up; the indexer, the labeller and the browser are written.**
+**All four programs are written.**
 `fuaim.py` dispatches and `install.sh` installs. `scan.py` is implemented: it
 walks a hierarchy, probes with `ffprobe`, measures levels and silence, generates
 the waveform and spectrogram, writes the index, and with `--proxy` writes
@@ -23,8 +23,9 @@ playable copies. `label.py` is implemented: it asks CLAP how well each phrase in
 sound-event `events` timeline. `browse.py` is implemented: it serves the index
 as a grid of waveform cards, filterable by when, what and how long, searchable
 over words, labels, filenames and metadata, with a detail view showing the
-spectrogram, sound-event timeline and transcript. `transcribe.py` is still a
-stub that parses its arguments and says so. This file is the specification,
+spectrogram, sound-event timeline and transcript. `transcribe.py` is implemented: it runs Whisper
+(faster-whisper) over each recording and writes a full transcript with
+per-segment timestamps. This file is the specification,
 written before any working code, and it is the contract the first implementation
 is held to. It mirrors the
 físeán project in `../finsean`, which is the video analogue of this tool:
@@ -427,8 +428,7 @@ Rules:
 **Correction (2026-10-02):** the plan was the browser and its fixture first, so
 that the contract is proved before the indexer exists. The order was reversed by
 direction — `scan.py` was written first, and the browser was built against the
-fixture afterwards. The layout, with `scan.py`, `browse.py`, `label.py` and the fixture now
-implemented and `transcribe.py` still to come:
+fixture afterwards. The layout, with all four programs and the fixture now implemented:
 
 | Path | What it is |
 | --- | --- |
