@@ -17,6 +17,9 @@ venv/
 .env.local
 *.log
 
+# Star ratings: the viewer's own, written beside the index by the browser.
+ratings.json
+
 # Editor and OS metadata
 .DS_Store
 *.swp

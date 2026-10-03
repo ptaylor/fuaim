@@ -31,8 +31,10 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import re
 import sys
+import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -50,6 +52,11 @@ RUNS_ON = "127.0.0.1"
 # shared: the two halves are separate programs and either may be run on its own,
 # so neither may import the other.
 INDEX_DIR_NAME = "fuaim-index"
+
+# The browser's one write: star ratings, keyed by asset id, kept beside the
+# index rather than in it — ratings are the viewer's, and a rescan rewrites
+# record files without knowing or caring about them.
+RATINGS_FILE = "ratings.json"
 
 # resolve() follows a symlink, which is what lets `~/bin/fuaim-browse` point at
 # this file and still find static/ beside the real one.
@@ -98,7 +105,18 @@ def safe_resolve(root: Path, relative: str) -> Path | None:
     return candidate
 
 
-def build_handler(index_root: Path, media_root: Path, static_dir: Path):
+def write_ratings(path: Path, ratings: dict) -> None:
+    """The ratings file, written atomically the way records and images are: an
+    interrupted write must not leave a half-written file where the next read
+    would fail."""
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(ratings, indent=1, sort_keys=True) + "\n",
+                         "utf-8")
+    os.replace(temporary, path)
+
+
+def build_handler(index_root: Path, media_root: Path, static_dir: Path,
+                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock):
     class FuaimHandler(BaseHTTPRequestHandler):
         server_version = "fuaim-browse"
 
@@ -116,6 +134,40 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path):
         def do_HEAD(self) -> None:
             self.safely(include_body=False)
 
+        def do_POST(self) -> None:
+            self.safely(include_body=True)
+
+        def handle_rating(self) -> None:
+            """Read one rating write, and answer with the value that was stored.
+
+            `stars` is 0 to clear, 1 to 5 otherwise. The write is serialised
+            behind a lock because the server is threaded, and goes to a temporary
+            file that is renamed over the real one.
+            """
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(length) if length > 0 else b""
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except (ValueError, OSError):
+                self.send_json({"error": "could not read the request"}, 400)
+                return
+            asset_id = str(payload.get("id") or "")
+            stars = payload.get("stars")
+            if not asset_id or not isinstance(stars, int) or not 0 <= stars <= 5:
+                self.send_json({"error": "expected { 'id': '…', 'stars': 0..5 }"}, 400)
+                return
+            with ratings_lock:
+                if stars == 0:
+                    ratings.pop(asset_id, None)
+                else:
+                    ratings[asset_id] = stars
+                try:
+                    write_ratings(ratings_path, ratings)
+                except OSError:
+                    self.send_json({"error": "could not save the rating"}, 500)
+                    return
+            self.send_json({"id": asset_id, "stars": stars})
+
         def safely(self, include_body: bool) -> None:
             """Serve one request, and let a client that has gone away go.
 
@@ -131,6 +183,19 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path):
 
         def serve(self, include_body: bool) -> None:
             path = urlparse(self.path).path
+
+            if self.command == "POST":
+                if path == "/rating":
+                    self.handle_rating()
+                else:
+                    self.send_error(404, "not found")
+                return
+
+            if path == "/ratings.json":
+                with ratings_lock:
+                    snapshot = dict(ratings)
+                self.send_json({"ratings": snapshot})
+                return
 
             if path == "/config.json":
                 # Where the halves meet: the server knows the absolute media path
@@ -218,6 +283,15 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path):
             if include_body:
                 self.wfile.write(payload)
 
+        def send_json(self, payload: dict, status: int = 200) -> None:
+            data = json.dumps(payload).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+
         def send_file_range(self, target: Path, include_body: bool = True) -> None:
             """Serve a media file, honouring a single range request.
 
@@ -269,10 +343,11 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path):
     return FuaimHandler
 
 
-def create_server(index_root: Path, media_root: Path, static_dir: Path,
-                  port: int) -> ThreadingHTTPServer:
+def create_server(index_root: Path, media_root: Path, static_dir: Path, port: int,
+                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock) -> ThreadingHTTPServer:
     """Bind the first free port at or above the one asked for."""
-    handler = build_handler(index_root, media_root, static_dir)
+    handler = build_handler(index_root, media_root, static_dir, ratings, ratings_path,
+                            ratings_lock)
     last_error: OSError | None = None
     for candidate in range(port, port + 20):
         try:
@@ -305,8 +380,9 @@ def resolve_media_root(index_root: Path, manifest_path: Path, override: str | No
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Browse a fuaim index as a library of waveforms.",
-        epilog="The index is read-only; the browser never writes to it, and never "
-               "decodes media. See docs/index-format.md for the format it expects.",
+        epilog="The index is read-only; the browser's only write is the star "
+               "ratings, kept in ratings.json beside the index. It never decodes "
+               "media. See docs/index-format.md for the format it expects.",
     )
     parser.add_argument("directory", nargs="?", default=None,
                         help="library root or index directory "
@@ -347,7 +423,20 @@ def main() -> int:
 
     media_root = resolve_media_root(index_root, index_root / "manifest.json", args.media_root)
 
-    server = create_server(index_root, media_root, STATIC_DIR, args.port)
+    # Star ratings live beside the index, not in it: they are the viewer's, and
+    # a rescan rewrites record files without knowing or caring about them.
+    ratings_path = index_root / RATINGS_FILE
+    ratings = {}
+    try:
+        loaded = json.loads(ratings_path.read_text("utf-8"))
+        if isinstance(loaded, dict):
+            ratings = {str(key): int(value) for key, value in loaded.items()
+                       if isinstance(value, (int, float)) and 1 <= int(value) <= 5}
+    except (OSError, ValueError):
+        ratings = {}
+
+    server = create_server(index_root, media_root, STATIC_DIR, args.port,
+                           ratings, ratings_path, threading.Lock())
     port = server.server_address[1]
     url = f"http://{RUNS_ON}:{port}/"
     print(f"fuaim browse: index {index_root}")

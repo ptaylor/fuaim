@@ -152,7 +152,12 @@ Numbered, as agreed, so that a later change can be checked against them.
     formats a browser cannot decode, the scan can write a small playback proxy
     (an `mp3` or `m4a` copy inside the index), exactly as físeán's `--proxy`
     does.
-16. Reads only the index, save for the one documented playback exception.
+16. Reads only the index, save for the one documented playback exception, and
+    keeps the star ratings — its one write — in `ratings.json` beside the index.
+17. Lets the viewer rate each recording from 0 to 5 stars and filter by rating.
+    **Addition (2026-10-03):** ratings are the viewer's, not the library's, so
+    they live in `ratings.json` beside the index rather than in the record
+    files, which a rescan rewrites without knowing or caring about them.
 
 ### Non-goals
 

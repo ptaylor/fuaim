@@ -26,6 +26,7 @@ const state = {
   config: null,
   manifest: null,
   assets: [],
+  ratings: {},   // star ratings, keyed by asset id — the viewer's own data
   selected: null,
   filters: new Map(),   // axis -> Set(values)
   duration: { loPos: 0, hiPos: DURATION_STEPS },
@@ -142,6 +143,12 @@ const AXES = [
   { key: 'format', title: 'Format',
     values: a => [[container(a), container(a)]],
     label: v => v },
+  { key: 'rating', title: 'Rating',
+    values: a => {
+      const stars = state.ratings[a.id] || 0;
+      return stars ? [[`${stars} star${stars > 1 ? 's' : ''}`, `r:${stars}`]] : [['unrated', 'r:0']];
+    },
+    label: v => v === 'r:0' ? 'unrated' : `${v.slice(2)} star${v.slice(2) === '1' ? '' : 's'}` },
 ];
 
 const axisFor = key => AXES.find(axis => axis.key === key);
@@ -304,9 +311,14 @@ function renderFacet(axis) {
     }
   }
   const chosen = state.filters.get(axis.key) || new Set();
-  const values = [...counts.entries()].sort((x, y) => axis.key === 'when'
-    ? String(y[0]).localeCompare(String(x[0]))
-    : y[1] - x[1] || String(x[0]).localeCompare(String(y[0])));
+  const values = [...counts.entries()].sort((x, y) => {
+    if (axis.key === 'when') return String(y[0]).localeCompare(String(x[0]));
+    if (axis.key === 'rating') {
+      const rank = v => (v === 'r:0' ? -1 : parseInt(v.slice(2), 10));
+      return rank(y[0]) - rank(x[0]) || y[1] - x[1];
+    }
+    return y[1] - x[1] || String(x[0]).localeCompare(String(y[0]));
+  });
 
   const chips = values.map(([value, count]) => {
     const pressed = chosen.has(value);
@@ -358,7 +370,7 @@ function card(a) {
     class: 'card',
     'data-selected': String(state.selected === a),
     onclick: () => openDrawer(a),
-  }, thumb, el('div', { class: 'body' }, meta, name, tags));
+  }, thumb, el('div', { class: 'body' }, meta, name, starStrip(a), tags));
 }
 
 /* ----------------------------------------------------------------- drawer */
@@ -463,6 +475,57 @@ function copyText(text, label) {
   }
 }
 
+/* ----------------------------------------------------------------- rating */
+
+// Five stars, click to set, click the same star again to clear. Drawn with ★ and
+// ☆ rather than filled glyphs from a font, so the state is visible without colour
+// and a screen reader still hears the number.
+function starStrip(a, big = false) {
+  const current = state.ratings[a.id] || 0;
+  return el('span', { class: `stars${big ? ' big' : ''}` },
+    Array.from({ length: 5 }, (_, i) => {
+      const n = i + 1;
+      const on = n <= current;
+      return el('button', {
+        class: `star${on ? ' on' : ''}`,
+        text: on ? '★' : '☆',
+        title: current === n ? 'clear the rating' : `${n} star${n > 1 ? 's' : ''}`,
+        'aria-label': `${n} star${n > 1 ? 's' : ''}`,
+        'aria-pressed': String(on),
+        onclick: event => {
+          event.stopPropagation();
+          setRating(a.id, current === n ? 0 : n);
+        },
+      });
+    }));
+}
+
+async function setRating(id, stars) {
+  try {
+    const response = await fetch('/rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, stars }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const saved = await response.json();
+    if (saved.stars === 0) delete state.ratings[id];
+    else state.ratings[id] = saved.stars;
+    render();
+    // The drawer is not rebuilt by render(), so its own stars are refreshed in
+    // place — a full re-open would stop a recording that is playing.
+    if (state.selected === id) {
+      const box = document.querySelector('#drawer .rating-box');
+      if (box) {
+        const asset = state.assets.find(x => x.id === id);
+        if (asset) box.replaceChildren(starStrip(asset, true));
+      }
+    }
+  } catch (error) {
+    toast('could not save the rating');
+  }
+}
+
 function openDrawer(a) {
   state.selected = a;
   const drawer = document.getElementById('drawer');
@@ -523,6 +586,8 @@ function openDrawer(a) {
     stage,
     player,
     facts,
+    el('div', { class: 'section' }, el('h3', { text: 'Rating' }),
+      el('div', { class: 'rating-box' }, starStrip(a, true))),
     el('div', { class: 'when' },
       el('span', { text: `${when(a.captured && a.captured.at)}${dateNote}` })),
   ];
@@ -607,10 +672,12 @@ function boot() {
   Promise.all([
     fetch('/config.json').then(r => r.json()),
     fetch('/index/manifest.json').then(r => r.json()),
+    fetch('/ratings.json').then(r => r.json()).catch(() => ({ ratings: {} })),
   ])
-    .then(([config, manifest]) => {
+    .then(([config, manifest, ratingsPayload]) => {
       state.config = config;
       state.manifest = manifest;
+      state.ratings = (ratingsPayload && ratingsPayload.ratings) || {};
       SUPPORTED_INDEX_VERSIONS = new Set(config.supported_index_versions || []);
       if (manifest.index_version != null && !SUPPORTED_INDEX_VERSIONS.has(manifest.index_version)) {
         throw new Error(`index version ${manifest.index_version} is not supported by this interface`);
