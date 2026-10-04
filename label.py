@@ -15,6 +15,7 @@ is labelled at the right points, not only as a whole.
     fuaim label ~/Recordings                label everything not already labelled
     fuaim label ~/Recordings --limit 20     twenty recordings, to look at results
     fuaim label ~/Recordings --calibrate    report where the scores actually fall
+    fuaim label ~/Recordings --tune --force set thresholds from the scores and rewrite vocabulary.yaml
     fuaim label ~/Recordings --force        label again, even where it already has
 
 **This is one of the two parts of the project with dependencies.** It needs
@@ -40,6 +41,7 @@ import collections
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -75,6 +77,11 @@ TIMEOUT = 60.0
 # Bumped when the scoring or what a record's `label` block means changes, the
 # way scan.py's SCAN_VERSION guards measurements.
 LABEL_VERSION = 1
+# The threshold rule applied by --tune, documented in vocabulary.yaml: a label's
+# p90 where that is already signal, otherwise its p99, and never below the floor.
+# A label marked `locked: true` in the vocabulary keeps its hand-picked value.
+TUNE_P90_LINE = 0.15
+TUNE_FLOOR = 0.10
 
 INSTALL = """fuaim label needs PyTorch and transformers, which are not installed here.
 They cannot go into the interpreter this project otherwise runs on: PyTorch's
@@ -130,6 +137,7 @@ def load_vocabulary(yaml, path: Path) -> tuple[list[dict], list[dict]]:
             "threshold": float(entry.get("threshold", 0.0)),
             "min_windows": int(entry.get("min_windows", 1)),
             "weak": bool(entry.get("weak", False)),
+            "locked": bool(entry.get("locked", False)),
         })
     negatives = [{"text": text}
                  for text in (data.get("calibration") or {}).get("negatives", [])]
@@ -379,6 +387,54 @@ def print_calibration(observed: dict[str, list[float]], thresholds: dict[str, fl
         "  unmistakable, or near the p99 to keep only the ones it shouts about.\n")
 
 
+def tune_thresholds(observed: dict[str, list[float]], thresholds: dict[str, float],
+                    locked: set[str], path: Path) -> list[tuple[str, float, float]]:
+    """Apply the threshold rule to a score distribution and write it back.
+
+    Only the `threshold:` value on each zero-shot line is rewritten, so the
+    comments, order, `min_windows`, `weak` and `locked` all survive untouched.
+    Returns the labels that changed as (text, old, new). If a planned label
+    cannot be matched back to a line, nothing is written rather than half the
+    file.
+    """
+    planned: dict[str, float] = {}
+    for text, old in thresholds.items():
+        if text in locked:
+            continue
+        scores = observed.get(text) or []
+        if len(scores) < 2:
+            continue
+        p90 = percentile(scores, 0.90)
+        p99 = percentile(scores, 0.99)
+        new = round(p90, 2) if p90 >= TUNE_P90_LINE else round(p99, 2)
+        new = max(TUNE_FLOOR, new)
+        if abs(new - old) > 0.005:
+            planned[text] = new
+    if not planned:
+        return []
+
+    lines = path.read_text().splitlines()
+    changed = 0
+    for index, line in enumerate(lines):
+        match = re.match(r"^\s*-\s*\{\s*text:\s*([^,]+),", line)
+        if not match:
+            continue
+        text = match.group(1).strip()
+        if text not in planned:
+            continue
+        new_line, count = re.subn(r"threshold:\s*[0-9.]+",
+                                  f"threshold: {planned[text]:.2f}", line)
+        if count == 1:
+            lines[index] = new_line
+            changed += 1
+    if changed != len(planned):
+        raise SystemExit(
+            f"tune matched {changed} of {len(planned)} labels in {path.name}; "
+            f"writing nothing")
+    path.write_text("\n".join(lines) + "\n")
+    return [(text, thresholds[text], planned[text]) for text in sorted(planned)]
+
+
 # --------------------------------------------------------------------- command
 
 
@@ -407,6 +463,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="the labels to ask for (default: vocabulary.yaml beside this program)")
     parser.add_argument("--calibrate", action="store_true",
                         help="report the score distribution at the end")
+    parser.add_argument("--tune", action="store_true",
+                        help="set thresholds from this run's score distribution and rewrite the "
+                             "vocabulary (combine with --force to re-measure everything)")
     parser.add_argument("--dry-run", action="store_true",
                         help="say what would be labelled, write nothing")
     parser.add_argument("--quiet", action="store_true", help="only failures and the summary")
@@ -486,6 +545,9 @@ def main(argv: list[str] | None = None) -> int:
                           ("use --force to label again", "dim")])
         if args.calibrate:
             print_calibration({}, {}, {}, set())
+        if args.tune:
+            reporter.note("tune needs window scores, but there was nothing to label; "
+                          "run with --force")
         return 0
     if args.dry_run:
         for index, asset_id in enumerate(todo, start=1):
@@ -516,6 +578,7 @@ def main(argv: list[str] | None = None) -> int:
     observed: dict[str, list[float]] = collections.defaultdict(list)
     thresholds = {entry["text"]: entry["threshold"] for entry in vocabulary}
     groups = {entry["text"]: entry["group"] for entry in vocabulary}
+    locked = {entry["text"] for entry in vocabulary if entry["locked"]}
 
     for index, asset_id in enumerate(todo, start=1):
         record = records[asset_id]
@@ -588,6 +651,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.calibrate:
         print_calibration(observed, thresholds, groups,
                           {entry["text"] for entry in negatives})
+    if args.tune:
+        changed = tune_thresholds(observed, thresholds, locked, vocabulary_path)
+        if changed:
+            reporter.note(f"tune: {len(changed)} threshold(s) rewritten in "
+                          f"{vocabulary_path.name}; the next 'fuaim label' "
+                          f"relabels with them")
+            for text, old, new in changed:
+                sys.stdout.write(f"    {text[:38]:40} {groups.get(text, '')[:8]:9} "
+                                 f"{old:.2f} -> {new:.2f}\n")
+        else:
+            reporter.note("tune: every label already sits at its rule value")
     return 0
 
 

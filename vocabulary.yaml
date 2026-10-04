@@ -21,6 +21,11 @@
 #   softmaxed against its own group plus the calibration negatives below — the
 #   "is anything here at all?" floor. These numbers are starting guesses:
 #   calibrate them with `fuaim label --calibrate` over one batch.
+#
+# `fuaim label --tune` applies a fixed rule to a calibration run and rewrites
+# the `threshold:` values in this file: a label's p90 where that is already
+# signal (`p90 >= 0.15`), otherwise its p99, and never below 0.10. A label
+# carrying `locked: true` keeps its hand-picked threshold instead.
 # - Levels are **not** in this file. "Silent", "quiet" and "loud" are thresholds
 #   over the numbers in `analysis`, derived by the browser, so they can be
 #   re-tuned without a re-index. See docs/index-format.md, rule 5.

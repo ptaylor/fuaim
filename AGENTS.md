@@ -135,6 +135,11 @@ the next label/transcribe pass replaces them.
     per-window scores support it, it also writes a **sound-event timeline** —
     events with `at_s` and `at_e` — so a recording that is birds for half a
     minute and then talk is labelled at the right points, not only as a whole.
+    `--calibrate` prints where the window scores actually fall, and `--tune`
+    applies the threshold rule mechanically — a label's p90 where that is
+    already signal, otherwise its p99, never below 0.10 — and rewrites the
+    `threshold:` values in `vocabulary.yaml` (a `locked: true` label keeps its
+    hand-picked value), exactly as físeán's `label --tune` does for frames.
 
 ### Indexer — `fuaim transcribe`
 
@@ -202,9 +207,9 @@ The decisions above are settled; what remains open:
 - **Whether transcription runs over silence.** Voice-activity detection to skip
   the quiet stretches, or transcribe everything and let the browser show where
   the words are.
-- **Label thresholds.** The values in `vocabulary.yaml` are starting guesses;
-  running one batch over the real library and looking at where the scores
-  actually fall is the obvious next step.
+- **Label thresholds.** The values in `vocabulary.yaml` are still starting
+  guesses; `fuaim label --tune` now applies the rule mechanically once a batch
+  has been run, and running one batch over the real library is the next step.
 - **Which formats need a playback proxy.** Recorded as "measure, don't assume"
   in Target formats; the mechanism is the same as físeán's.
 - **Place names.** Audio rarely carries GPS, so there is no "where" facet; if a

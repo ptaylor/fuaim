@@ -23,6 +23,7 @@ contract.
 
 fuaim scan DIR               # measure, label and transcribe everything
 fuaim label DIR              # (re)label — after editing vocabulary.yaml
+fuaim label DIR --tune --force   # set thresholds from a run, rewrite vocabulary.yaml
 fuaim transcribe DIR         # (re)transcribe — after changing the model
 fuaim browse DIR             # serve that index and open it
 fuaim browse                 # the committed fixture, for a look around
