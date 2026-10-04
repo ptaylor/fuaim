@@ -514,7 +514,8 @@ async function setRating(id, stars) {
     render();
     // The drawer is not rebuilt by render(), so its own stars are refreshed in
     // place — a full re-open would stop a recording that is playing.
-    if (state.selected === id) {
+    // `state.selected` is the asset object, not its id, so compare ids.
+    if (state.selected && state.selected.id === id) {
       const box = document.querySelector('#drawer .rating-box');
       if (box) {
         const asset = state.assets.find(x => x.id === id);
