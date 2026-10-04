@@ -235,9 +235,12 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path,
                 if target is None or not target.is_file():
                     self.send_error(404, "not in the index")
                     return
-                # Records are served uncached so a re-index shows up on reload;
-                # images and proxies are immutable in practice and cache badly if not.
-                cache = "no-store" if target.suffix == ".json" else "public, max-age=3600"
+                # Records and playback proxies are served uncached: both change
+                # when the index is rewritten — a rescan, or --proxy with a
+                # different length cap — and a stale proxy is a recording that
+                # stops early. The images are generation for a fixed source and
+                # cache for the session.
+                cache = "no-store" if target.suffix in (".json", ".m4a") else "public, max-age=3600"
                 self.send_bytes(target.read_bytes(), self.guess_type(target), cache, include_body)
                 return
 
