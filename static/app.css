@@ -337,21 +337,43 @@ main { display: flex; align-items: flex-start; }
 }
 
 /* ---------------------------------------------------------------- loading */
+/* Covers the page while the records are fetched. The blur and the dark fill are
+   the same treatment as the header, so it reads as the interface waiting rather
+   than a dialog interrupting it. Above the drawer (40) and the toast (50),
+   because nothing underneath is usable yet. */
 #loading {
-  position: fixed; inset: 0; background: var(--bg); z-index: 60;
+  position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
+  background: rgba(12, 14, 16, 0.78);
+  backdrop-filter: saturate(140%) blur(6px);
 }
 #loading[hidden] { display: none; }
-.loading-panel { width: min(320px, 80vw); text-align: center; }
-.loading-brand { margin-bottom: 18px; }
-.loading-mark { width: 56px; height: 56px; }
-.loading-name { margin: 8px 0 0; font-size: 20px; font-weight: 600; }
+.loading-panel { width: min(340px, 74vw); }
+/* The mark and the name, centred above the bar, so the wait shows what is
+   loading rather than a bare progress bar. */
+.loading-brand {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; margin-bottom: 24px;
+}
+.loading-mark { width: 56px; height: 56px; display: block; }
+.loading-name {
+  margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.01em;
+}
+.loading-name span { color: var(--accent); }
 .loading-track {
-  height: 4px; border-radius: 999px; background: var(--panel-2);
-  overflow: hidden; margin: 0 auto;
+  height: 5px; border-radius: 999px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--line-soft);
 }
 .loading-fill {
-  height: 100%; width: 0; background: var(--accent);
-  transition: width 180ms ease;
+  height: 100%; width: 0; border-radius: 999px; background: var(--accent);
+  transition: width 140ms ease;
 }
-.loading-text { margin-top: 12px; color: var(--dim); font-size: 13px; }
+.loading-text {
+  margin: 11px 0 0; text-align: center;
+  font-size: 12.5px; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The bar still reports progress, it just stops sliding to it. */
+  .loading-fill { transition: none; }
+}

@@ -684,41 +684,120 @@ function toast(text) {
   node._timer = setTimeout(() => { node.hidden = true; }, 1800);
 }
 
+/* ----------------------------------------------------------------- loading */
+
+// The overlay is held back briefly. A four-record fixture loads in about 20ms,
+// and a full-screen overlay that appears and vanishes inside one frame reads as
+// a glitch rather than as progress; it is only worth showing once the wait is
+// noticeable, which is what a few hundred records is.
+const LOADING_DELAY_MS = 150;
+const loading = document.getElementById('loading');
+let loadingTimer = null;
+
+function showLoading(message) {
+  loading.querySelector('.loading-text').textContent = message;
+  clearTimeout(loadingTimer);
+  if (!loading.hidden) return;
+  loadingTimer = setTimeout(() => { loading.hidden = false; }, LOADING_DELAY_MS);
+}
+
+function setLoading(done, total) {
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  loading.setAttribute('aria-valuenow', String(percent));
+  loading.querySelector('.loading-fill').style.width = `${percent}%`;
+  loading.querySelector('.loading-text').textContent =
+    total ? `loading ${done} of ${total} records` : 'reading the index…';
+}
+
+function hideLoading() {
+  clearTimeout(loadingTimer);
+  loading.hidden = true;
+}
+
+async function loadConcurrently(ids, limit, onProgress) {
+  const assets = [];
+  let next = 0, done = 0;
+  const worker = async () => {
+    while (next < ids.length) {
+      const index = next++;
+      const id = ids[index];
+      // Every record is fetched inside its own try. Without it, one unreadable
+      // record rejected the worker, which rejected Promise.all, which threw out
+      // of boot() and left the page stuck on "loading … records" with the grid
+      // empty and nothing said. One bad file must cost one card.
+      try {
+        const response = await fetch(`/index/audio/${encodeURIComponent(id)}.json`);
+        if (response.ok) assets.push(await response.json());
+      } catch (error) {
+        /* one bad record costs one card, nothing else */
+      }
+      done++;
+      if (done % 5 === 0 || done === ids.length) onProgress(done, ids.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, ids.length) }, worker));
+  return assets;
+}
+
 /* ------------------------------------------------------------------- boot */
 
-function boot() {
-  const loading = document.getElementById('loading');
-  loading.hidden = false;
+async function boot() {
+  showLoading('reading the index…');
+  let manifest, config;
+  try {
+    const [manifestResponse, configResponse, ratingsResponse] = await Promise.all([
+      fetch('/index/manifest.json', { cache: 'no-store' }),
+      fetch('/config.json', { cache: 'no-store' }),
+      fetch('/ratings.json', { cache: 'no-store' }),
+    ]);
+    if (!manifestResponse.ok) throw new Error(`manifest.json returned ${manifestResponse.status}`);
+    manifest = await manifestResponse.json();
+    config = configResponse.ok ? await configResponse.json() : {};
+    SUPPORTED_INDEX_VERSIONS = new Set(config.supported_index_versions || []);
+    if (ratingsResponse.ok) {
+      const ratings = await ratingsResponse.json();
+      state.ratings = ratings.ratings || {};
+    }
+  } catch (error) {
+    hideLoading();
+    showBanner(String(error && error.message ? error.message : error));
+    return;
+  }
 
-  Promise.all([
-    fetch('/config.json').then(r => r.json()),
-    fetch('/index/manifest.json').then(r => r.json()),
-    fetch('/ratings.json').then(r => r.json()).catch(() => ({ ratings: {} })),
-  ])
-    .then(([config, manifest, ratingsPayload]) => {
-      state.config = config;
-      state.manifest = manifest;
-      state.ratings = (ratingsPayload && ratingsPayload.ratings) || {};
-      SUPPORTED_INDEX_VERSIONS = new Set(config.supported_index_versions || []);
-      if (manifest.index_version != null && !SUPPORTED_INDEX_VERSIONS.has(manifest.index_version)) {
-        throw new Error(`index version ${manifest.index_version} is not supported by this interface`);
-      }
-      return fetch('/index/audio').then(r => r.json());
-    })
-    .then(({ ids }) => {
-      const jobs = (ids || []).map(id => fetch(`/index/audio/${id}.json`).then(r => r.json()));
-      return Promise.all(jobs);
-    })
-    .then(assets => {
-      state.assets = assets.filter(a => a && a.id);
-      measureDurationExtent();
-      loading.hidden = true;
-      render();
-    })
-    .catch(error => {
-      loading.hidden = true;
-      showBanner(String(error && error.message ? error.message : error));
-    });
+  if (manifest.index_version != null && !SUPPORTED_INDEX_VERSIONS.has(manifest.index_version)) {
+    hideLoading();
+    showBanner(`index version ${manifest.index_version} is not supported by this interface`);
+    return;
+  }
+
+  state.manifest = manifest;
+  state.config = config;
+
+  let ids = manifest.assets;
+  try {
+    if (!ids) {
+      const listing = await fetch('/index/audio', { cache: 'no-store' });
+      ids = listing.ok ? (await listing.json()).ids : [];
+    }
+  } catch (error) {
+    hideLoading();
+    showBanner(String(error && error.message ? error.message : error));
+    return;
+  }
+  if (!ids || !ids.length) {
+    hideLoading();
+    showBanner('the index has no assets');
+    return;
+  }
+
+  setLoading(0, ids.length);
+  const assets = await loadConcurrently(ids, 8, (done, total) => setLoading(done, total));
+  state.assets = assets.filter(a => a && a.id);
+  measureDurationExtent();
+  render();
+  // Hidden after the first render, not before: a flash of empty grid between
+  // the two would be worse than the overlay staying a moment longer.
+  hideLoading();
 }
 
 function showBanner(text) {
