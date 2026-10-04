@@ -538,8 +538,15 @@ function openDrawer(a) {
 
   const playhead = el('div', { class: 'playhead' });
   const stage = el('div', { class: 'stage' });
-  if (spec) stage.append(el('img', { src: spec, alt: 'spectrogram' }));
-  else if (wave) stage.append(el('img', { src: wave, alt: 'waveform' }));
+  if (spec) {
+    stage.append(el('img', { src: spec, alt: 'spectrogram' }));
+    // The waveform laid over the spectrogram: the loudness envelope traced on
+    // top of the pitch map. The screen blend makes the waveform's black
+    // background transparent, so only its line shows through.
+    if (wave) stage.append(el('img', { src: wave, alt: '', class: 'wave-overlay', 'aria-hidden': 'true' }));
+  } else if (wave) {
+    stage.append(el('img', { src: wave, alt: 'waveform' }));
+  }
   stage.append(playhead);
 
   let player;

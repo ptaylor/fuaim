@@ -229,6 +229,12 @@ main { display: flex; align-items: flex-start; }
 .drawer-body { overflow-y: auto; padding: 14px 16px 40px; }
 .stage { position: relative; background: #0a0c0e; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
 .stage img { width: 100%; display: block; }
+/* The waveform laid over the spectrogram: `screen` turns its black background
+   transparent, so only the line shows, tracing the loudness over the pitch map. */
+.stage .wave-overlay {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  mix-blend-mode: screen; pointer-events: none;
+}
 .stage audio { width: 100%; display: block; }
 /* The playhead: a vertical line over the spectrogram that traces playback. */
 .playhead {
