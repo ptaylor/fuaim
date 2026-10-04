@@ -9,21 +9,21 @@ instead of by filename. *Fuaim* is Irish for *sound*.
 ## Status
 
 **The whole tool works.**
-`fuaim scan DIR` indexes the recordings under `DIR` — technical metadata,
-levels, silence, and a waveform (cover) and spectrogram (detail) per recording.
-`fuaim label DIR` asks CLAP what is in each recording, writing whole-file labels
-and a sound-event timeline. `fuaim browse DIR` serves the index as a grid of
-waveform cards, filterable by when, what and how long and searchable over words,
-labels, filenames and metadata. `fuaim transcribe DIR` runs Whisper over each recording, so spoken
-words are searchable and each segment can be jumped to. Read [AGENTS.md](AGENTS.md) for the agreed
-requirements and the index contract.
+`fuaim scan DIR` does the whole job — measures each recording, asks CLAP what is
+in it (labels and a sound-event timeline), and runs Whisper over it — writing
+everything into the index; `--no-label` and `--no-transcribe` leave either out.
+`fuaim label DIR` and `fuaim transcribe DIR` redo one part on its own.
+`fuaim browse DIR` serves the index as a grid of waveform cards, filterable by
+when, what and how long and searchable over words, labels, filenames and
+metadata. Read [AGENTS.md](AGENTS.md) for the agreed requirements and the index
+contract.
 
 ```sh
 ./install.sh                 # puts the fuaim command in ~/bin
 
-fuaim scan DIR               # index the recordings under DIR
-fuaim label DIR              # classify them: what is in each one
-fuaim transcribe DIR         # transcribe the speech, for search
+fuaim scan DIR               # measure, label and transcribe everything
+fuaim label DIR              # (re)label — after editing vocabulary.yaml
+fuaim transcribe DIR         # (re)transcribe — after changing the model
 fuaim browse DIR             # serve that index and open it
 fuaim browse                 # the committed fixture, for a look around
 ```

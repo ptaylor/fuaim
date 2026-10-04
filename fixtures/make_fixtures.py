@@ -107,6 +107,7 @@ def generate_media() -> None:
 def scan() -> None:
     subprocess.run([
         sys.executable, str(ROOT / "scan.py"), str(MEDIA), "--index", str(INDEX),
+        "--no-label", "--no-transcribe",
     ], check=True)
 
 

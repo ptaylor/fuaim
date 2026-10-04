@@ -68,7 +68,7 @@ INDEX_DIR_NAME = "fuaim-index"
 USAGE = """usage: fuaim <command> [args]
 
 commands:
-  scan <DIR>        index every recording under DIR, so the browser can read it
+  scan <DIR>        measure, label and transcribe every recording under DIR
   label <DIR>       classify each recording against vocabulary.yaml
   transcribe <DIR>  run speech-to-text over each recording, for search
   open <DIR>        serve the index in DIR and open it in a browser

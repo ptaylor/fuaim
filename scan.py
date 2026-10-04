@@ -10,7 +10,8 @@ and ffprobe are the only external programs, and they are run as **CLI
 processes**, never linked. Linking `libav*` would make this program
 GPL-3.0-or-later as well; see the licence section of AGENTS.md.
 
-    fuaim scan ~/Recordings                    # index beside the library
+    fuaim scan ~/Recordings                    # measure, label and transcribe
+    fuaim scan ~/Recordings --no-label --no-transcribe   # measure only
     fuaim scan ~/Recordings --index /tmp/idx   # put the index elsewhere
     fuaim scan ~/Recordings --force            # re-scan files that have not changed
     fuaim scan ~/Recordings --proxy            # write playable copies where needed
@@ -20,6 +21,11 @@ One process per file, and nothing is decoded that is not needed:
 
     ffprobe     technical metadata, duration, capture time
     ffmpeg      one pass for levels and silence; one pass for the two images
+
+After the scan, the label and transcribe halves run over the fresh index as
+separate processes under the model environment's interpreter — unless
+`--no-label` / `--no-transcribe` says otherwise — so one command measures,
+labels and transcribes, while each half stays runnable and redoable on its own.
 
 The index format is the contract in docs/index-format.md. Where this file makes a
 choice the contract leaves open, the choice is named as a constant below with the
@@ -700,12 +706,12 @@ def scan_one(path: Path, root: Path, index_dir: Path, existing: dict | None,
     relative = path.relative_to(root).as_posix()
     name = asset_id(relative, path.stem)
     stat = path.stat()
+    previous_source = (existing or {}).get("source") or {}
+    same_file = (previous_source.get("size_bytes") == stat.st_size
+                 and previous_source.get("mtime_ns") == stat.st_mtime_ns)
 
     if existing is not None and not args.force:
-        source = existing.get("source") or {}
         fingerprint = existing.get("scan") or {}
-        same_file = (source.get("size_bytes") == stat.st_size
-                     and source.get("mtime_ns") == stat.st_mtime_ns)
         wanted = settings_fingerprint(args)
         same_rules = all(fingerprint.get(key) == value for key, value in wanted.items())
         wave_path = ((existing.get("wave") or {}).get("path") or "")
@@ -768,6 +774,17 @@ def scan_one(path: Path, root: Path, index_dir: Path, existing: dict | None,
         "scan": {**settings_fingerprint(args),
                  "seconds": round(time.monotonic() - started, 2)},
     }
+
+    # A re-measure under --force or changed settings must not cost a re-label or
+    # a re-transcribe, so the other halves' fields are carried over — but only
+    # when the file itself is unchanged. A changed file's old labels and
+    # transcript describe different audio, so they are dropped for the next
+    # label/transcribe pass to replace.
+    if existing is not None and same_file:
+        for key in ("labels", "events", "label", "transcription", "playback"):
+            if key in existing:
+                record[key] = existing[key]
+
     return record, None, warnings
 
 
@@ -875,6 +892,59 @@ def vocabulary_hash() -> dict | None:
             "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
 
 
+# ---------------------------------------------------------------- model halves
+
+MODELS_INSTALL = """fuaim scan runs the label and transcribe halves afterwards, which live in
+their own environment — this Mac's last PyTorch wheel is 2.2.2, and it stops at
+Python 3.12, so they cannot share the interpreter scan runs on. Build it once:
+
+    python3.12 -m venv ~/.venvs/fuaim-models
+    ~/.venvs/fuaim-models/bin/pip install "torch==2.2.2" "numpy<2" "transformers==4.40.2" faster-whisper pyyaml
+
+Without it, scan measures and then skips label and transcribe — or pass
+--no-label --no-transcribe to scan only.
+"""
+
+
+def model_python() -> Path | None:
+    candidate = Path(os.environ.get("FUAIM_MODELS_PYTHON") or
+                     Path.home() / ".venvs" / "fuaim-models" / "bin" / "python")
+    return candidate if candidate.is_file() else None
+
+
+def run_models(args, index_dir: Path, reporter) -> None:
+    """Run the label and transcribe halves over the fresh index.
+
+    They are separate programs, run under the model environment's own
+    interpreter as processes rather than imported, so scan keeps its
+    standard-library interpreter and the halves stay replaceable. The point is
+    one command that measures, labels and transcribes — while `fuaim label` and
+    `fuaim transcribe` remain runnable and redoable on their own.
+    """
+    python = model_python()
+    if python is None:
+        reporter.warn("label and transcribe need the model environment — scanning only")
+        sys.stdout.write(MODELS_INSTALL)
+        sys.stdout.flush()
+        return
+    here = Path(__file__).resolve().parent
+    for program, wanted, name in (("label.py", args.label, "label"),
+                                  ("transcribe.py", args.transcribe, "transcribe")):
+        if not wanted:
+            continue
+        command = [str(python), str(here / program), str(index_dir)]
+        if args.limit is not None:
+            command += ["--limit", str(args.limit)]
+        if args.quiet:
+            command.append("--quiet")
+        if args.no_colour:
+            command.append("--no-colour")
+        code = subprocess.run(command).returncode
+        if code != 0:
+            reporter.warn(f"{name} stopped (exit {code}); what it wrote is kept")
+            break
+
+
 # ---------------------------------------------------------------- command
 
 
@@ -923,6 +993,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--proxy-minutes", type=proxy_minutes, default=None, metavar="MINUTES",
                         help="minutes of audio to copy, or 'max' for no cap "
                              "(overrides --proxy-seconds)")
+    parser.add_argument("--label", action=argparse.BooleanOptionalAction, default=True,
+                        help="run the labeller over the index afterwards (default: yes)")
+    parser.add_argument("--transcribe", action=argparse.BooleanOptionalAction, default=True,
+                        help="run the transcriber over the index afterwards (default: yes)")
     parser.add_argument("--jobs", type=int, default=1,
                         help="files to work on at once (default: 1, which keeps output in order)")
     parser.add_argument("--limit", type=int, default=None, help="stop after this many files")
@@ -1178,6 +1252,8 @@ def main(argv: list[str] | None = None) -> int:
     ])
     if not args.quiet:
         reporter.note(f"index {index_dir}")
+    if not args.dry_run and (args.label or args.transcribe):
+        run_models(args, index_dir, reporter)
     # A file that could not be indexed is reported and recorded, but it does not
     # make the run a failure: a library with one corrupt file would otherwise fail
     # every scan for ever. --strict is there for callers that want the opposite.

@@ -118,6 +118,14 @@ Numbered, as agreed, so that a later change can be checked against them.
 9. Survives a file it cannot read: the failure is recorded in the manifest's
    `errors`, the rest of the scan carries on, and the library stays browsable.
 
+**Addition (2026-10-04):** `fuaim scan` runs the whole pipeline — measure, label
+and transcribe — in one pass, because that is the one workflow the library
+needs. `--no-label` and `--no-transcribe` leave either out, and `fuaim label` /
+`fuaim transcribe` remain runnable on their own, so any one part can be redone
+(`--force`) without touching the others. A rescan carries a file's labels and
+transcript over when its audio has not changed, and drops them when it has, so
+the next label/transcribe pass replaces them.
+
 ### Indexer — `fuaim label`
 
 10. Asks a zero-shot audio-language model (CLAP) how well each phrase in
