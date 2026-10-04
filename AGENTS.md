@@ -167,11 +167,15 @@ the next label/transcribe pass replaces them.
     (an `mp3` or `m4a` copy inside the index), exactly as físeán's `--proxy`
     does.
 16. Reads only the index, save for the one documented playback exception, and
-    keeps the star ratings — its one write — in `ratings.json` beside the index.
+    keeps its writes — star ratings, and the viewer's titles and descriptions —
+    in `ratings.json` and `notes.json` beside the index.
 17. Lets the viewer rate each recording from 0 to 5 stars and filter by rating.
     **Addition (2026-10-03):** ratings are the viewer's, not the library's, so
     they live in `ratings.json` beside the index rather than in the record
     files, which a rescan rewrites without knowing or caring about them.
+18. Lets the viewer give each recording their own title and a description,
+    shown in place of the file name and searchable. They are the viewer's too,
+    so they live in `notes.json` beside the index — same reasoning as ratings.
 
 ### Non-goals
 

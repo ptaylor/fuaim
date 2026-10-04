@@ -197,6 +197,18 @@ main { display: flex; align-items: flex-start; }
 .stars.big .star { width: 28px; height: 28px; font-size: 22px; line-height: 28px; }
 .card .stars { margin: 4px 0 2px; }
 .rating-box { margin-bottom: 16px; }
+/* The viewer's own title and description, saved to notes.json beside the index. */
+.note-editor { display: flex; flex-direction: column; gap: 10px; }
+.note-field { display: flex; flex-direction: column; gap: 5px; }
+.note-label { font-size: 11.5px; color: var(--dim); }
+.note-title, .note-desc {
+  width: 100%; box-sizing: border-box;
+  background: var(--panel-2); border: 1px solid var(--line-soft);
+  border-radius: 6px; padding: 7px 9px; color: var(--ink);
+  font: inherit; font-size: 13px;
+}
+.note-title:focus, .note-desc:focus { outline: none; border-color: var(--accent); }
+.note-desc { resize: vertical; min-height: 52px; }
 .empty-library {
   grid-column: 1 / -1; color: var(--dim); padding: 40px 0; text-align: center;
 }

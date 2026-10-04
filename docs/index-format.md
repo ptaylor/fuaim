@@ -14,8 +14,9 @@ commit that changes them.
 
 1. **The browser reads the index, and nothing else.** The single exception is
    playback — see section 6 — and it is narrowly drawn: bytes are served, never
-   decoded. Star ratings are not part of the contract: the browser keeps its own
-   `ratings.json` beside the index, and the record files never carry them.
+   decoded. Star ratings and the viewer's own titles and descriptions are not
+   part of the contract: the browser keeps its own `ratings.json` and
+   `notes.json` beside the index, and the record files never carry them.
 2. **`media_root` is the only path in the index that may be absolute**, and it may
    also be relative — resolved against the index directory — so an index can
    travel with its media. Everything else is relative to it, with POSIX
@@ -51,6 +52,7 @@ Beside the library it describes, in a directory named `fuaim-index`:
     ├── manifest.json
     ├── overrides.yaml      # hand-edited; see below
     ├── ratings.json        # written by the browser; see below
+    ├── notes.json          # written by the browser; see below
     ├── wave/<id>.png       # the waveform cover
     ├── spec/<id>.png       # the spectrogram
     ├── proxies/<id>.mp3    # optional playback copies
@@ -68,13 +70,19 @@ person's library, it may name people, and it is not project source. The label
 vocabulary is project source and does live in the repo (`vocabulary.yaml`).
 Nothing reads `overrides.yaml` yet.
 
-`ratings.json` is the one file the browser writes, and it is not part of the
-index contract either: a map from asset id to a star rating of 1–5 (0 is unrated
+`ratings.json` is one of two files the browser writes, and neither is part of
+the index contract: a map from asset id to a star rating of 1–5 (0 is unrated
 and stored as an absent key). Ratings are the viewer's, not the library's, so
 they stay out of the record files — which `fuaim scan` rewrites without knowing
 or caring about them — and out of `overrides.yaml`, which is hand-edited. The
 same consequence as with `overrides.yaml` applies: renaming or moving a file
 produces a new id, and its rating is orphaned.
+
+`notes.json` is the other browser write, under the same rule: a map from asset
+id to `{"title": …, "description": …}` — the viewer's own name and notes for a
+recording, shown in place of the file name and searchable. They live beside the
+index for the same reason ratings do: a rescan rewrites record files, and the
+viewer's words must survive it.
 
 ## 3. `manifest.json`
 

@@ -27,6 +27,7 @@ const state = {
   manifest: null,
   assets: [],
   ratings: {},   // star ratings, keyed by asset id — the viewer's own data
+  notes: {},     // the viewer's titles and descriptions, keyed by asset id
   selected: null,
   filters: new Map(),   // axis -> Set(values)
   duration: { loPos: 0, hiPos: DURATION_STEPS },
@@ -78,6 +79,12 @@ function when(iso) {
 
 const year = iso => (iso ? String(iso).slice(0, 4) : 'undated');
 const fileName = path => String(path || '').split('/').pop();
+// The title the viewer gave a recording, or its file name when none. The
+// drawer's Details section is where a title and description are set.
+const displayName = a => {
+  const note = state.notes[a.id];
+  return (note && note.title && note.title.trim()) || fileName(a.source.path);
+};
 const enc = rel => String(rel || '').split('/').map(encodeURIComponent).join('/');
 const container = a => (a.technical && a.technical.container) || '?';
 
@@ -109,9 +116,12 @@ const eventText = a => (a.events || []).map(e => e.text);
 const transcriptText = a => (a.transcription && a.transcription.text) || '';
 
 function searchHaystack(a) {
+  const note = state.notes[a.id] || {};
   return [
     a.id,
     a.source && a.source.path,
+    note.title || '',
+    note.description || '',
     container(a),
     (a.technical || {}).codec || '',
     a.captured && a.captured.device ? Object.values(a.captured.device).join(' ') : '',
@@ -362,7 +372,7 @@ function card(a) {
     a.captured && (a.captured.at_source === 'file_mtime' || a.captured.at_source === 'filename')
       ? el('span', { class: 'approx', text: 'approx' }) : null);
 
-  const name = el('div', { class: 'name', text: fileName(a.source.path) });
+  const name = el('div', { class: 'name', text: displayName(a) });
   const tags = el('div', { class: 'tags' },
     (a.labels || []).slice(0, 4).map(l => el('span', { class: 'tag' + (l.weak ? ' weak' : ''), text: l.text })));
 
@@ -527,6 +537,62 @@ async function setRating(id, stars) {
   }
 }
 
+async function setNote(id, title, description) {
+  try {
+    const response = await fetch('/note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, title, description }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const saved = await response.json();
+    if (saved.title || saved.description) state.notes[id] = saved;
+    else delete state.notes[id];
+    render();
+    // The drawer is not rebuilt by render(), so its head title is refreshed in
+    // place — a full re-open would stop a recording that is playing.
+    if (state.selected && state.selected.id === id) {
+      const head = document.querySelector('#drawer .who-title');
+      if (head) head.textContent = displayName(state.selected);
+      const sub = document.querySelector('#drawer .who div:last-child');
+      if (sub) {
+        const asset = state.selected;
+        const custom = displayName(asset) !== fileName(asset.source.path);
+        sub.textContent = custom
+          ? `${fileName(asset.source.path)} · ${container(asset)} · ${duration(asset.technical && asset.technical.duration_s)}`
+          : `${container(asset)} · ${duration(asset.technical && asset.technical.duration_s)}`;
+      }
+    }
+  } catch (error) {
+    toast('could not save the note');
+  }
+}
+
+// The viewer's own title and description. Each saves on blur (or Enter for the
+// title), the way the star strip saves on click — no save button to forget.
+function noteEditor(a) {
+  const note = state.notes[a.id] || {};
+  const title = el('input', {
+    class: 'note-title', type: 'text', placeholder: fileName(a.source.path),
+    'aria-label': 'Title',
+  });
+  title.value = note.title || '';
+  const description = el('textarea', {
+    class: 'note-desc', rows: 3, placeholder: 'Add a description…',
+    'aria-label': 'Description',
+  });
+  description.value = note.description || '';
+  const save = () => setNote(a.id, title.value.trim(), description.value.trim());
+  title.addEventListener('change', save);
+  title.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
+  });
+  description.addEventListener('change', save);
+  return el('div', { class: 'note-editor' },
+    el('label', { class: 'note-field' }, el('span', { class: 'note-label', text: 'Title' }), title),
+    el('label', { class: 'note-field' }, el('span', { class: 'note-label', text: 'Description' }), description));
+}
+
 function openDrawer(a) {
   state.selected = a;
   const drawer = document.getElementById('drawer');
@@ -608,6 +674,7 @@ function openDrawer(a) {
     stage,
     player,
     facts,
+    el('div', { class: 'section' }, el('h3', { text: 'Details' }), noteEditor(a)),
     el('div', { class: 'section' }, el('h3', { text: 'Rating' }),
       el('div', { class: 'rating-box' }, starStrip(a, true))),
     el('div', { class: 'when' },
@@ -648,8 +715,10 @@ function openDrawer(a) {
   drawer.replaceChildren(
     el('div', { class: 'drawer-head' },
       el('div', { class: 'who' },
-        el('div', { text: fileName(a.source.path) }),
-        el('div', { text: `${container(a)} · ${duration(a.technical && a.technical.duration_s)}` })),
+        el('div', { class: 'who-title', text: displayName(a) }),
+        el('div', { text: displayName(a) !== fileName(a.source.path)
+          ? `${fileName(a.source.path)} · ${container(a)} · ${duration(a.technical && a.technical.duration_s)}`
+          : `${container(a)} · ${duration(a.technical && a.technical.duration_s)}` })),
       el('button', { class: 'close', 'aria-label': 'Close', onclick: closeDrawer }, '×')),
     el('div', { class: 'drawer-body' }, body));
 
@@ -746,10 +815,11 @@ async function boot() {
   showLoading('reading the index…');
   let manifest, config;
   try {
-    const [manifestResponse, configResponse, ratingsResponse] = await Promise.all([
+    const [manifestResponse, configResponse, ratingsResponse, notesResponse] = await Promise.all([
       fetch('/index/manifest.json', { cache: 'no-store' }),
       fetch('/config.json', { cache: 'no-store' }),
       fetch('/ratings.json', { cache: 'no-store' }),
+      fetch('/notes.json', { cache: 'no-store' }),
     ]);
     if (!manifestResponse.ok) throw new Error(`manifest.json returned ${manifestResponse.status}`);
     manifest = await manifestResponse.json();
@@ -758,6 +828,10 @@ async function boot() {
     if (ratingsResponse.ok) {
       const ratings = await ratingsResponse.json();
       state.ratings = ratings.ratings || {};
+    }
+    if (notesResponse.ok) {
+      const notes = await notesResponse.json();
+      state.notes = notes.notes || {};
     }
   } catch (error) {
     hideLoading();

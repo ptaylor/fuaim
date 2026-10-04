@@ -53,10 +53,12 @@ RUNS_ON = "127.0.0.1"
 # so neither may import the other.
 INDEX_DIR_NAME = "fuaim-index"
 
-# The browser's one write: star ratings, keyed by asset id, kept beside the
-# index rather than in it — ratings are the viewer's, and a rescan rewrites
-# record files without knowing or caring about them.
+# The browser's writes: star ratings and the viewer's own titles and
+# descriptions, keyed by asset id and kept beside the index rather than in it —
+# they are the viewer's, and a rescan rewrites record files without knowing or
+# caring about them.
 RATINGS_FILE = "ratings.json"
+NOTES_FILE = "notes.json"
 
 # resolve() follows a symlink, which is what lets `~/bin/fuaim-browse` point at
 # this file and still find static/ beside the real one.
@@ -105,18 +107,19 @@ def safe_resolve(root: Path, relative: str) -> Path | None:
     return candidate
 
 
-def write_ratings(path: Path, ratings: dict) -> None:
-    """The ratings file, written atomically the way records and images are: an
-    interrupted write must not leave a half-written file where the next read
-    would fail."""
+def write_json_atomic(path: Path, payload: dict) -> None:
+    """A JSON file beside the index, written atomically the way records and
+    images are: an interrupted write must not leave a half-written file where
+    the next read would fail."""
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(ratings, indent=1, sort_keys=True) + "\n",
+    temporary.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n",
                          "utf-8")
     os.replace(temporary, path)
 
 
 def build_handler(index_root: Path, media_root: Path, static_dir: Path,
-                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock):
+                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock,
+                  notes: dict, notes_path: Path, notes_lock: threading.Lock):
     class FuaimHandler(BaseHTTPRequestHandler):
         server_version = "fuaim-browse"
 
@@ -162,12 +165,50 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path,
                 else:
                     ratings[asset_id] = stars
                 try:
-                    write_ratings(ratings_path, ratings)
+                    write_json_atomic(ratings_path, ratings)
                 except OSError:
                     self.send_json({"error": "could not save the rating"}, 500)
                     return
             self.send_json({"id": asset_id, "stars": stars})
+        def handle_note(self) -> None:
+            """Read one note write, and answer with the note that was stored.
 
+            `title` and `description` are both optional; sending both empty
+            clears the entry. The write is serialised behind a lock and goes to
+            a temporary file renamed over the real one, exactly as ratings are.
+            """
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(length) if length > 0 else b""
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except (ValueError, OSError):
+                self.send_json({"error": "could not read the request"}, 400)
+                return
+            asset_id = str(payload.get("id") or "")
+            title = payload.get("title")
+            description = payload.get("description")
+            if not asset_id:
+                self.send_json({"error": "expected an asset id"}, 400)
+                return
+            if title is not None and not isinstance(title, str):
+                self.send_json({"error": "title must be text"}, 400)
+                return
+            if description is not None and not isinstance(description, str):
+                self.send_json({"error": "description must be text"}, 400)
+                return
+            title = (title or "").strip()[:200]
+            description = (description or "").strip()[:2000]
+            with notes_lock:
+                if title or description:
+                    notes[asset_id] = {"title": title, "description": description}
+                else:
+                    notes.pop(asset_id, None)
+                try:
+                    write_json_atomic(notes_path, notes)
+                except OSError:
+                    self.send_json({"error": "could not save the note"}, 500)
+                    return
+            self.send_json({"id": asset_id, "title": title, "description": description})
         def safely(self, include_body: bool) -> None:
             """Serve one request, and let a client that has gone away go.
 
@@ -187,6 +228,8 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path,
             if self.command == "POST":
                 if path == "/rating":
                     self.handle_rating()
+                elif path == "/note":
+                    self.handle_note()
                 else:
                     self.send_error(404, "not found")
                 return
@@ -195,6 +238,12 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path,
                 with ratings_lock:
                     snapshot = dict(ratings)
                 self.send_json({"ratings": snapshot})
+                return
+
+            if path == "/notes.json":
+                with notes_lock:
+                    snapshot = dict(notes)
+                self.send_json({"notes": snapshot})
                 return
 
             if path == "/config.json":
@@ -347,10 +396,11 @@ def build_handler(index_root: Path, media_root: Path, static_dir: Path,
 
 
 def create_server(index_root: Path, media_root: Path, static_dir: Path, port: int,
-                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock) -> ThreadingHTTPServer:
+                  ratings: dict, ratings_path: Path, ratings_lock: threading.Lock,
+                  notes: dict, notes_path: Path, notes_lock: threading.Lock) -> ThreadingHTTPServer:
     """Bind the first free port at or above the one asked for."""
     handler = build_handler(index_root, media_root, static_dir, ratings, ratings_path,
-                            ratings_lock)
+                            ratings_lock, notes, notes_path, notes_lock)
     last_error: OSError | None = None
     for candidate in range(port, port + 20):
         try:
@@ -383,8 +433,9 @@ def resolve_media_root(index_root: Path, manifest_path: Path, override: str | No
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Browse a fuaim index as a library of waveforms.",
-        epilog="The index is read-only; the browser's only write is the star "
-               "ratings, kept in ratings.json beside the index. It never decodes "
+        epilog="The index is read-only; the browser's only writes are the star "
+               "ratings and the viewer's titles and descriptions, kept in "
+               "ratings.json and notes.json beside the index. It never decodes "
                "media. See docs/index-format.md for the format it expects.",
     )
     parser.add_argument("directory", nargs="?", default=None,
@@ -426,8 +477,9 @@ def main() -> int:
 
     media_root = resolve_media_root(index_root, index_root / "manifest.json", args.media_root)
 
-    # Star ratings live beside the index, not in it: they are the viewer's, and
-    # a rescan rewrites record files without knowing or caring about them.
+    # Star ratings and the viewer's titles and descriptions live beside the
+    # index, not in it: they are the viewer's, and a rescan rewrites record
+    # files without knowing or caring about them.
     ratings_path = index_root / RATINGS_FILE
     ratings = {}
     try:
@@ -438,8 +490,21 @@ def main() -> int:
     except (OSError, ValueError):
         ratings = {}
 
+    notes_path = index_root / NOTES_FILE
+    notes = {}
+    try:
+        loaded = json.loads(notes_path.read_text("utf-8"))
+        if isinstance(loaded, dict):
+            notes = {str(key): {
+                "title": str(value.get("title") or "")[:200],
+                "description": str(value.get("description") or "")[:2000],
+            } for key, value in loaded.items() if isinstance(value, dict)}
+    except (OSError, ValueError):
+        notes = {}
+
     server = create_server(index_root, media_root, STATIC_DIR, args.port,
-                           ratings, ratings_path, threading.Lock())
+                           ratings, ratings_path, threading.Lock(),
+                           notes, notes_path, threading.Lock())
     port = server.server_address[1]
     url = f"http://{RUNS_ON}:{port}/"
     print(f"fuaim browse: index {index_root}")
