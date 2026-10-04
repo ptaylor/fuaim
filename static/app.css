@@ -235,6 +235,15 @@ main { display: flex; align-items: flex-start; }
   position: absolute; inset: 0; width: 100%; height: 100%;
   mix-blend-mode: screen; pointer-events: none;
 }
+/* The spectrogram is an opt-in, reached from the waveform via this toggle. */
+.stage .view-toggle {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  background: rgba(8, 10, 12, 0.72); border: 1px solid var(--line-soft);
+  border-radius: 6px; padding: 3px 9px; font-size: 11.5px; color: var(--ink);
+  cursor: pointer;
+}
+.stage .view-toggle:hover { border-color: var(--dimmer); }
+.stage img[hidden] { display: none; }
 .stage audio { width: 100%; display: block; }
 /* The playhead: a vertical line over the spectrogram that traces playback. */
 .playhead {

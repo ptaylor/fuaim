@@ -538,14 +538,28 @@ function openDrawer(a) {
 
   const playhead = el('div', { class: 'playhead' });
   const stage = el('div', { class: 'stage' });
-  if (spec) {
-    stage.append(el('img', { src: spec, alt: 'spectrogram' }));
-    // The waveform laid over the spectrogram: the loudness envelope traced on
-    // top of the pitch map. The screen blend makes the waveform's black
-    // background transparent, so only its line shows through.
-    if (wave) stage.append(el('img', { src: wave, alt: '', class: 'wave-overlay', 'aria-hidden': 'true' }));
-  } else if (wave) {
-    stage.append(el('img', { src: wave, alt: 'waveform' }));
+  const waveImg = wave ? el('img', { src: wave, alt: 'waveform' }) : null;
+  const specImg = spec ? el('img', { src: spec, alt: 'spectrogram' }) : null;
+  if (waveImg) stage.append(waveImg);
+  if (specImg) stage.append(specImg);
+  if (waveImg && specImg) {
+    // The waveform is the default view; the spectrogram is an opt-in. Choosing
+    // it lays the waveform over the spectrogram with a screen blend, so the
+    // loudness envelope keeps tracing the pitch map.
+    specImg.hidden = true;
+    const toggle = el('button', {
+      class: 'view-toggle', type: 'button', text: 'spectrogram',
+      'aria-pressed': 'false',
+      onclick: () => {
+        const toSpec = specImg.hidden;
+        specImg.hidden = !toSpec;
+        waveImg.classList.toggle('wave-overlay', toSpec);
+        waveImg.setAttribute('aria-hidden', toSpec ? 'true' : 'false');
+        toggle.textContent = toSpec ? 'waveform' : 'spectrogram';
+        toggle.setAttribute('aria-pressed', String(toSpec));
+      },
+    });
+    stage.append(toggle);
   }
   stage.append(playhead);
 

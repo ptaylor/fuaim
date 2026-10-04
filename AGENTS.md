@@ -157,9 +157,10 @@ the next label/transcribe pass replaces them.
     metadata. A range over a measurement is not a fourth axis, which is why
     duration is listed with the axes but not as one of them.
 14. Shows the waveforms as the primary browsing surface — a grid of waveform
-    cards — and looks good doing it. The detail view shows the spectrogram, the
-    sound-event timeline and the transcript, with the timeline and transcript
-    clickable to seek playback.
+    cards — and looks good doing it. The detail view shows the waveform by
+    default, with the spectrogram as an opt-in toggle (the waveform traced over
+    it), plus the sound-event timeline and the transcript, with the timeline and
+    transcript clickable to seek playback.
 15. Plays a recording where the browser can decode it, and otherwise offers a
     one-click **copy of the full path** so it can be opened in a player. For
     formats a browser cannot decode, the scan can write a small playback proxy
